@@ -7,7 +7,7 @@
 A sleek, dark-mode AI image generator with multiple providers, <br/>
 batch generation, and one-click deployment to Cloudflare Pages.
 
-[中文](./README.zh.md) · [Changelog](./CHANGELOG.md) · [Live Demo](https://zenith-image-generator.pages.dev)
+[中文](./README.zh.md) · [Changelog](./docs/CHANGELOG.md) · [Live Demo](https://zenith-image-generator.pages.dev)
 
 ![Dark Mode UI](https://img.shields.io/badge/UI-Dark%20Mode-1a1a1a)
 ![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-F38020)
@@ -40,7 +40,7 @@ batch generation, and one-click deployment to Cloudflare Pages.
 [![Deploy to Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new)
 [![Deploy to Netlify](https://img.shields.io/badge/Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://app.netlify.com/start)
 
-> See [Deployment Guide](./docs/DEPLOYMENT.md) for detailed instructions.
+> See [Deployment Guide](./docs/en/DEPLOYMENT.md) for detailed instructions.
 
 ### Local Development
 
@@ -58,7 +58,7 @@ pnpm dev:web
 
 Open `http://localhost:5173`
 
-📖 **[Full Development Guide](./CONTRIBUTING.md)**
+📖 **[Full Development Guide](./docs/en/CONTRIBUTING.md)**
 
 ## API Usage
 

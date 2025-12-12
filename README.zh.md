@@ -7,7 +7,7 @@
 支持多 AI 提供商的深色模式图片生成器，<br/>
 批量生成，一键部署到 Cloudflare Pages。
 
-[English](./README.md) · [更新日志](./CHANGELOG.md) · [在线演示](https://zenith-image-generator.pages.dev)
+[English](./README.md) · [更新日志](./docs/CHANGELOG.md) · [在线演示](https://zenith-image-generator.pages.dev)
 
 ![Dark Mode UI](https://img.shields.io/badge/UI-Dark%20Mode-1a1a1a)
 ![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-F38020)
@@ -56,7 +56,7 @@ pnpm dev:web
 
 打开 `http://localhost:5173`
 
-📖 **[完整开发指南](./CONTRIBUTING.md)**
+📖 **[完整开发指南](./docs/zh/CONTRIBUTING.md)**
 
 ## 文档
 
