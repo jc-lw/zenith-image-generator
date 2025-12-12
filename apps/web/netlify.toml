@@ -51,8 +51,9 @@
     Access-Control-Allow-Headers = "Content-Type, X-API-Key, X-HF-Token, X-MS-Token"
 
 # Netlify Edge Functions configuration
-[edge_functions]
-  directory = "netlify/edge-functions"
+[[edge_functions]]
+  path = "/api/*"
+  function = "api"
 
 # Environment variables (set in Netlify dashboard)
 [context.production.environment]
