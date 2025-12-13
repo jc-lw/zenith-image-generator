@@ -1,0 +1,86 @@
+# Dependabot configuration
+# Keeps dependencies up-to-date and checks for security vulnerabilities
+
+version: 2
+
+updates:
+  # Root package.json
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: 'chore(deps):'
+    labels:
+      - 'dependencies'
+      - 'chore'
+    groups:
+      dev-dependencies:
+        patterns:
+          - '@types/*'
+          - 'vitest'
+          - '@vitest/*'
+          - 'typescript'
+          - '@biomejs/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # API package
+  - package-ecosystem: 'npm'
+    directory: '/apps/api'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps-api):'
+    labels:
+      - 'dependencies'
+      - 'api'
+
+  # Web package
+  - package-ecosystem: 'npm'
+    directory: '/apps/web'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps-web):'
+    labels:
+      - 'dependencies'
+      - 'web'
+    groups:
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react*'
+      ui:
+        patterns:
+          - '@radix-ui/*'
+          - 'tailwindcss'
+          - '@tailwindcss/*'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    commit-message:
+      prefix: 'chore(ci):'
+    labels:
+      - 'dependencies'
+      - 'ci'
