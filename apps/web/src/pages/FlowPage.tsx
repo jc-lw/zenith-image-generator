@@ -5,6 +5,7 @@ import {
   type Connection,
   Controls,
   type Edge,
+  MiniMap,
   type Node,
   ReactFlow,
   ReactFlowProvider,
@@ -12,7 +13,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Download, Settings, Trash2, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -41,6 +42,28 @@ const nodeTypes = {
   aiResult: AIResultNode,
 }
 
+// Helper function to calculate path from root to a node
+function calculatePathToNode(
+  nodeId: string,
+  _nodes: Node[],
+  edges: Edge[]
+): string[] {
+  const path: string[] = []
+  const edgeMap = new Map<string, string>() // target -> source
+
+  for (const edge of edges) {
+    edgeMap.set(edge.target, edge.source)
+  }
+
+  let currentId: string | undefined = nodeId
+  while (currentId) {
+    path.unshift(currentId)
+    currentId = edgeMap.get(currentId)
+  }
+
+  return path
+}
+
 function FlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -57,7 +80,45 @@ function FlowCanvas() {
   const [isLoaded, setIsLoaded] = useState(false)
   const nodeIdRef = useRef(0)
   const imagesRef = useRef<GeneratedImage[]>([])
-  const { fitView, setViewport } = useReactFlow()
+  const { fitView, setViewport, setCenter } = useReactFlow()
+
+  // Branching support: track selected node as branch point
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+
+  // Calculate active path from root to selected node
+  const activePath = useMemo(() => {
+    if (!selectedNodeId) return []
+    return calculatePathToNode(selectedNodeId, nodes, edges)
+  }, [selectedNodeId, nodes, edges])
+
+  // Update edges with active path styling
+  const styledEdges = useMemo(() => {
+    return edges.map((edge) => {
+      const isOnActivePath =
+        activePath.includes(edge.source) && activePath.includes(edge.target)
+      return {
+        ...edge,
+        style: {
+          stroke: isOnActivePath ? '#f97316' : '#3f3f46',
+          strokeWidth: isOnActivePath ? 2 : 1.5,
+        },
+        animated: isOnActivePath,
+      }
+    })
+  }, [edges, activePath])
+
+  // Handle node click for selection
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId((prev) => (prev === node.id ? null : node.id))
+    },
+    []
+  )
+
+  // Handle pane click to deselect
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null)
+  }, [])
 
   // Create image generated handler
   const handleImageGenerated = useCallback(
@@ -197,7 +258,8 @@ function FlowCanvas() {
     }) => {
       const newNodes: Node[] = []
       const newEdges: Edge[] = []
-      const lastNodeId = nodes.length > 0 ? nodes[nodes.length - 1].id : null
+      // Branch from selected node, or append to last node if no selection
+      const parentNodeId = selectedNodeId || (nodes.length > 0 ? nodes[nodes.length - 1].id : null)
       const timestamp = new Date().toLocaleTimeString('zh-CN', {
         hour: '2-digit',
         minute: '2-digit',
@@ -218,10 +280,10 @@ function FlowCanvas() {
         } as UserPromptNodeData,
       })
 
-      if (lastNodeId) {
+      if (parentNodeId) {
         newEdges.push({
-          id: `e-${lastNodeId}-${promptNodeId}`,
-          source: lastNodeId,
+          id: `e-${parentNodeId}-${promptNodeId}`,
+          source: parentNodeId,
           target: promptNodeId,
         })
       }
@@ -259,25 +321,54 @@ function FlowCanvas() {
 
       setNodes(layoutedNodes)
       setEdges(layoutedEdges)
-      setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 100)
+
+      // Auto-pan to the new prompt node
+      const newPromptNode = layoutedNodes.find((n) => n.id === promptNodeId)
+      if (newPromptNode) {
+        setTimeout(() => {
+          setCenter(newPromptNode.position.x + 140, newPromptNode.position.y + 100, {
+            zoom: 1,
+            duration: 500,
+          })
+        }, 100)
+      }
+
+      // Clear selection after branching
+      setSelectedNodeId(null)
     },
-    [nodes, edges, setNodes, setEdges, fitView, handleImageGenerated, model]
+    [nodes, edges, setNodes, setEdges, setCenter, handleImageGenerated, model, selectedNodeId]
   )
 
   return (
     <div className="h-screen w-screen bg-zinc-950">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={styledEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
+        minZoom={0.2}
+        maxZoom={2}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+        }}
         className="bg-zinc-950"
       >
-        <Background variant={BackgroundVariant.Dots} color="#3f3f46" gap={20} />
-        <Controls className="bg-zinc-900! border-zinc-800! rounded-lg! [&>button]:bg-zinc-800! [&>button]:border-zinc-700! [&>button:hover]:bg-zinc-700! [&>button>svg]:fill-zinc-300!" />
+        <Background variant={BackgroundVariant.Dots} color="#27272a" gap={20} size={1} />
+        <Controls className="!bg-zinc-800/90 !border-zinc-700 !rounded-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button:hover]:!bg-zinc-700 [&>button>svg]:!fill-zinc-400" />
+        <MiniMap
+          nodeColor={(node) => {
+            if (node.id === selectedNodeId) return '#f97316'
+            if (activePath.includes(node.id)) return '#ea580c'
+            return node.type === 'userPrompt' ? '#3f3f46' : '#27272a'
+          }}
+          maskColor="rgba(0, 0, 0, 0.8)"
+          className="!bg-zinc-900/90 !border-zinc-700 !rounded-lg"
+        />
       </ReactFlow>
 
       {/* Header */}
@@ -359,7 +450,12 @@ function FlowCanvas() {
         </div>
       )}
 
-      <FloatingInput onSubmit={addNode} providerLabel={`${provider} / ${model}`} />
+      <FloatingInput
+        onSubmit={addNode}
+        providerLabel={`${provider} / ${model}`}
+        selectedNodeId={selectedNodeId}
+        onClearSelection={() => setSelectedNodeId(null)}
+      />
     </div>
   )
 }

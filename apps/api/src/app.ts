@@ -45,7 +45,7 @@ export function createApp(config: AppConfig = {}) {
   const app = new Hono().basePath('/api')
 
   // Default CORS origins for development
-  const defaultOrigins = ['http://localhost:5173', 'http://localhost:3000']
+  const defaultOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000']
   const origins = config.corsOrigins || defaultOrigins
 
   // Pre-create CORS middleware instance (optimization)

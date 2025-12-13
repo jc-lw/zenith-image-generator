@@ -22,7 +22,7 @@ export function getConfig(): ApiConfig {
   // Parse CORS origins from environment or use defaults
   const corsOriginsEnv = process.env.CORS_ORIGINS
   const defaultOrigins = isDev
-    ? ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173']
+    ? ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:4173']
     : []
 
   const corsOrigins = corsOriginsEnv

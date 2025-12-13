@@ -1,4 +1,4 @@
-import { ImageIcon, RefreshCw, Sparkles, Zap } from 'lucide-react'
+import { GitBranch, ImageIcon, RefreshCw, Sparkles, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ASPECT_RATIOS } from '@/lib/constants'
@@ -13,9 +13,16 @@ interface FloatingInputProps {
     seed: number
   }) => void
   providerLabel: string
+  selectedNodeId?: string | null
+  onClearSelection?: () => void
 }
 
-export default function FloatingInput({ onSubmit, providerLabel }: FloatingInputProps) {
+export default function FloatingInput({
+  onSubmit,
+  providerLabel,
+  selectedNodeId,
+  onClearSelection,
+}: FloatingInputProps) {
   const [aspectRatioIndex, setAspectRatioIndex] = useState(0)
   const [resolutionIndex, setResolutionIndex] = useState(0) // 0=1K, 1=2K - independent of aspect ratio
   const [prompt, setPrompt] = useState('')
@@ -88,7 +95,24 @@ export default function FloatingInput({ onSubmit, providerLabel }: FloatingInput
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-50 flex items-end gap-3">
-      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-3xl p-4 shadow-2xl flex flex-col gap-3">
+      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-3xl p-4 shadow-2xl flex flex-col gap-3 relative">
+        {/* Selected Node Indicator */}
+        {selectedNodeId && (
+          <div className="absolute -top-10 left-4 flex items-center gap-2 px-3 py-1.5 rounded-t-xl bg-orange-500/10 border border-orange-500/30 border-b-0">
+            <GitBranch size={14} className="text-orange-400" />
+            <span className="text-xs text-orange-300">
+              Branching from <span className="font-mono font-medium">{selectedNodeId}</span>
+            </span>
+            <button
+              type="button"
+              onClick={onClearSelection}
+              className="ml-1 p-0.5 rounded hover:bg-orange-500/20 text-orange-400 hover:text-orange-300 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {/* Row 1: Badges */}
         <div className="flex gap-2">
           <Badge

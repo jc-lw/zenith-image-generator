@@ -1,5 +1,5 @@
 import { Handle, type NodeProps, Position } from '@xyflow/react'
-import { Download, Eye, EyeOff, Sparkles, Trash2 } from 'lucide-react'
+import { Download, Eye, EyeOff, GitBranch, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import { loadSettings, type ProviderType } from '@/lib/constants'
 import { loadAllTokens } from '@/lib/crypto'
@@ -71,7 +71,7 @@ async function generateImageApi(
   return data.imageDetails
 }
 
-function AIResultNode({ id, data }: NodeProps) {
+function AIResultNode({ id, data, selected }: NodeProps) {
   const {
     prompt,
     width,
@@ -115,7 +115,14 @@ function AIResultNode({ id, data }: NodeProps) {
       startTimeRef.current = Date.now()
       const settings = loadSettings()
       const provider = (settings.provider as ProviderType) ?? 'huggingface'
-      const selectedModel = settings.model || 'z-image-turbo'
+
+      // Validate model is valid for the provider, otherwise use default
+      const { getModelsByProvider, getDefaultModel } = await import('@/lib/constants')
+      const validModels = getModelsByProvider(provider)
+      const savedModel = settings.model || 'z-image-turbo'
+      const selectedModel = validModels.some((m) => m.id === savedModel)
+        ? savedModel
+        : getDefaultModel(provider)
 
       const tokens = await loadAllTokens()
       const token = tokens[provider]
@@ -170,8 +177,30 @@ function AIResultNode({ id, data }: NodeProps) {
   }
 
   return (
-    <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-700 rounded-xl p-4 min-w-[280px] shadow-2xl">
-      <Handle type="target" position={Position.Top} className="!bg-orange-500" />
+    <div
+      className={`
+        relative backdrop-blur-md border rounded-xl p-4 min-w-[280px] shadow-2xl
+        transition-all duration-300 ease-out
+        ${selected
+          ? 'bg-zinc-900/80 border-orange-500/50 ring-2 ring-orange-500/40 shadow-[0_0_30px_rgba(249,115,22,0.2)]'
+          : 'bg-zinc-900/60 border-zinc-700 hover:border-zinc-600'
+        }
+      `}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={`!w-3 !h-3 !border-2 transition-colors ${
+          selected ? '!bg-orange-500 !border-orange-400' : '!bg-orange-500 !border-orange-400'
+        }`}
+      />
+
+      {/* Selection indicator */}
+      {selected && (
+        <div className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-lg z-10">
+          <GitBranch size={10} className="text-white" />
+        </div>
+      )}
 
       <div className="relative w-[256px] h-[256px] rounded-lg overflow-hidden bg-zinc-800 mb-3 group">
         {loading ? (
@@ -238,7 +267,13 @@ function AIResultNode({ id, data }: NodeProps) {
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!bg-zinc-600" />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={`!w-3 !h-3 !border-2 transition-colors ${
+          selected ? '!bg-orange-500 !border-orange-400' : '!bg-zinc-600 !border-zinc-500'
+        }`}
+      />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { Handle, type NodeProps, Position } from '@xyflow/react'
-import { User } from 'lucide-react'
+import { GitBranch, User } from 'lucide-react'
 import { memo } from 'react'
 
 export type UserPromptNodeData = {
@@ -10,16 +10,39 @@ export type UserPromptNodeData = {
   batchCount: number
 }
 
-function UserPromptNode({ data }: NodeProps) {
+function UserPromptNode({ data, selected }: NodeProps) {
   const { prompt, timestamp, width, height, batchCount } = data as UserPromptNodeData
 
   return (
-    <div className="bg-zinc-800 rounded-2xl px-4 py-3 w-[280px] shadow-lg">
-      <Handle type="target" position={Position.Top} className="bg-zinc-600!" />
+    <div
+      className={`
+        relative rounded-2xl px-4 py-3 w-[280px] shadow-lg
+        transition-all duration-300 ease-out
+        ${selected
+          ? 'bg-zinc-800 ring-2 ring-orange-500/60 shadow-[0_0_30px_rgba(249,115,22,0.25)]'
+          : 'bg-zinc-800/90 hover:bg-zinc-800'
+        }
+      `}
+      style={{
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={`!w-3 !h-3 !border-2 transition-colors ${
+          selected ? '!bg-orange-500 !border-orange-400' : '!bg-zinc-600 !border-zinc-500'
+        }`}
+      />
 
       <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <div className="w-5 h-5 rounded-full bg-zinc-700 flex items-center justify-center">
-          <User size={12} className="text-zinc-400" />
+        <div
+          className={`
+            w-6 h-6 rounded-full flex items-center justify-center transition-colors
+            ${selected ? 'bg-orange-500/20 text-orange-400' : 'bg-zinc-700 text-zinc-400'}
+          `}
+        >
+          <User size={12} />
         </div>
         <span className="text-zinc-500 text-xs">{timestamp}</span>
         <span className="text-zinc-600 text-xs">|</span>
@@ -33,7 +56,20 @@ function UserPromptNode({ data }: NodeProps) {
         <p className="text-zinc-200 text-sm leading-relaxed break-words">{prompt}</p>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="bg-orange-500!" />
+      {/* Selection indicator */}
+      {selected && (
+        <div className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
+          <GitBranch size={10} className="text-white" />
+        </div>
+      )}
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={`!w-3 !h-3 !border-2 transition-colors ${
+          selected ? '!bg-orange-500 !border-orange-400' : '!bg-orange-500 !border-orange-400'
+        }`}
+      />
     </div>
   )
 }
