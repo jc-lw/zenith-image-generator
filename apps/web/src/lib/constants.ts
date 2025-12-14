@@ -23,9 +23,9 @@ export type { ProviderType, AspectRatioConfig, LLMProviderType }
 export { PROVIDER_CONFIGS, MODEL_CONFIGS, getModelsByProvider, LLM_PROVIDER_CONFIGS }
 export { DEFAULT_OPTIMIZE_SYSTEM_PROMPT }
 
-// Environment defaults
-export const DEFAULT_PROMPT = import.meta.env.VITE_DEFAULT_PROMPT
-export const DEFAULT_NEGATIVE_PROMPT = import.meta.env.VITE_DEFAULT_NEGATIVE_PROMPT
+// Environment defaults (with fallbacks to prevent undefined)
+export const DEFAULT_PROMPT = import.meta.env.VITE_DEFAULT_PROMPT ?? ''
+export const DEFAULT_NEGATIVE_PROMPT = import.meta.env.VITE_DEFAULT_NEGATIVE_PROMPT ?? ''
 
 // Aspect ratios with icons for UI
 const ASPECT_RATIO_ICONS = {
