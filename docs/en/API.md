@@ -357,6 +357,54 @@ X-DeepSeek-Token: your-deepseek-token   # For deepseek provider
 | ModelScope | `X-MS-Token` | `deepseek-ai/DeepSeek-V3.2` | No (uses existing ModelScope token) |
 | DeepSeek Official | `X-DeepSeek-Token` | `deepseek-chat` | No |
 
+## `POST /api/translate`
+
+Translate a prompt from Chinese to English for better image generation results.
+
+**Headers:**
+
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "prompt": "一只在雪地里奔跑的金毛犬"
+}
+```
+
+**Parameters:**
+
+| Field    | Type   | Required | Description                              |
+| -------- | ------ | -------- | ---------------------------------------- |
+| `prompt` | string | Yes      | The prompt to translate (max 2000 chars) |
+
+**Response (Success):**
+
+```json
+{
+  "translated": "A golden retriever running in the snow",
+  "model": "openai-fast"
+}
+```
+
+**Response (Error):**
+
+```json
+{
+  "error": "Prompt is required",
+  "code": "INVALID_PROMPT"
+}
+```
+
+**Notes:**
+- Uses Pollinations AI with `openai-fast` model
+- Free to use, no authentication required
+- If the input is already in English, it will be returned as-is
+- Designed specifically for AI image generation prompts
+
 ## Usage Examples
 
 ### cURL
@@ -421,6 +469,13 @@ curl -X POST https://your-project.pages.dev/api/optimize \
     "provider": "modelscope-llm",
     "lang": "zh"
   }'
+
+# Prompt Translation (Chinese to English - Free)
+curl -X POST https://your-project.pages.dev/api/translate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "一只在雪地里奔跑的金毛犬"
+  }'
 ```
 
 ### JavaScript (fetch)
@@ -477,6 +532,21 @@ const giteeOptimize = await fetch('https://your-project.pages.dev/api/optimize',
 
 const giteeResult = await giteeOptimize.json();
 console.log(giteeResult.optimized);
+
+// Prompt Translation (Chinese to English - Free)
+const translateResponse = await fetch('https://your-project.pages.dev/api/translate', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    prompt: '一只在雪地里奔跑的金毛犬',
+  }),
+});
+
+const translated = await translateResponse.json();
+console.log(translated.translated);
+// Output: "A golden retriever running in the snow"
 ```
 
 ### Python
@@ -533,6 +603,20 @@ gitee_optimize = requests.post(
 )
 
 print(gitee_optimize.json()['optimized'])
+
+# Prompt Translation (Chinese to English - Free)
+translate_response = requests.post(
+    'https://your-project.pages.dev/api/translate',
+    headers={
+        'Content-Type': 'application/json',
+    },
+    json={
+        'prompt': '一只在雪地里奔跑的金毛犬',
+    }
+)
+
+print(translate_response.json()['translated'])
+# Output: "A golden retriever running in the snow"
 ```
 
 ## Supported Aspect Ratios

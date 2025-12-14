@@ -74,3 +74,17 @@ export interface OptimizeErrorResponse {
     upstream?: string
   }
 }
+
+/** Prompt translate request */
+export interface TranslateRequest {
+  /** The prompt to translate (Chinese to English) */
+  prompt: string
+}
+
+/** Prompt translate success response */
+export interface TranslateResponse {
+  /** The translated prompt */
+  translated: string
+  /** Model used */
+  model: string
+}

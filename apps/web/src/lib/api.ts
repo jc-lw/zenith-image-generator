@@ -12,6 +12,7 @@ import type {
   LLMProviderType,
   OptimizeRequest,
   OptimizeResponse,
+  TranslateResponse,
   UpscaleRequest,
   UpscaleResponse,
 } from '@z-image/shared'
@@ -251,6 +252,42 @@ export async function optimizePrompt(
     }
 
     return { success: true, data: data as OptimizeResponse }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Network error',
+    }
+  }
+}
+
+/**
+ * Translate a prompt from Chinese to English
+ * Uses Pollinations AI with openai-fast model (free, no auth required)
+ */
+export async function translatePrompt(prompt: string): Promise<ApiResponse<TranslateResponse>> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/translate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      const errorInfo = parseErrorResponse(data)
+      return {
+        success: false,
+        error: getErrorMessage(errorInfo),
+        errorInfo,
+      }
+    }
+
+    return { success: true, data: data as TranslateResponse }
   } catch (err) {
     return {
       success: false,

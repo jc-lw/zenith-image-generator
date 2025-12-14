@@ -119,3 +119,22 @@ Rules:
 - Keep the enhanced prompt under 300 words
 - Preserve the core subject and intent of the original prompt
 - Add specific, descriptive modifiers that enhance visual quality`
+
+/** Default system prompt for prompt translation */
+export const DEFAULT_TRANSLATE_SYSTEM_PROMPT = `You are a professional translator specialized in AI image generation prompts.
+Your task is to translate the user's prompt from Chinese to English accurately.
+
+Rules:
+- Output ONLY the translated English prompt, no explanations or additional text
+- Preserve the original meaning and intent exactly
+- Keep artistic terms, style descriptions, and technical terms accurate
+- Do not add, remove, or modify any content - only translate
+- If the input is already in English, return it as-is
+- Maintain the same level of detail as the original`
+
+/** Translation API configuration */
+export const TRANSLATION_CONFIG = {
+  url: 'https://text.pollinations.ai/openai',
+  model: 'openai-fast',
+  needsAuth: false,
+} as const

@@ -357,6 +357,54 @@ X-DeepSeek-Token: your-deepseek-token   # deepseek provider
 | ModelScope | `X-MS-Token` | `deepseek-ai/DeepSeek-V3.2` | 否 (复用现有 ModelScope Token) |
 | DeepSeek 官方 | `X-DeepSeek-Token` | `deepseek-chat` | 否 |
 
+## `POST /api/translate`
+
+将中文提示词翻译成英文，以获得更好的图像生成效果。
+
+**请求头：**
+
+```
+Content-Type: application/json
+```
+
+**请求体：**
+
+```json
+{
+  "prompt": "一只在雪地里奔跑的金毛犬"
+}
+```
+
+**参数：**
+
+| 字段     | 类型   | 必填 | 描述                           |
+| -------- | ------ | ---- | ------------------------------ |
+| `prompt` | string | 是   | 需要翻译的提示词 (最多 2000 字符) |
+
+**响应（成功）：**
+
+```json
+{
+  "translated": "A golden retriever running in the snow",
+  "model": "openai-fast"
+}
+```
+
+**响应（错误）：**
+
+```json
+{
+  "error": "Prompt is required",
+  "code": "INVALID_PROMPT"
+}
+```
+
+**说明：**
+- 使用 Pollinations AI 的 `openai-fast` 模型
+- 免费使用，无需认证
+- 如果输入已经是英文，将原样返回
+- 专门针对 AI 图像生成提示词进行优化
+
 ## 使用示例
 
 ### cURL
@@ -421,6 +469,13 @@ curl -X POST https://your-project.pages.dev/api/optimize \
     "provider": "modelscope-llm",
     "lang": "zh"
   }'
+
+# 提示词翻译 (中文转英文 - 免费)
+curl -X POST https://your-project.pages.dev/api/translate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "一只在雪地里奔跑的金毛犬"
+  }'
 ```
 
 ### JavaScript (fetch)
@@ -477,6 +532,21 @@ const giteeOptimize = await fetch('https://your-project.pages.dev/api/optimize',
 
 const giteeResult = await giteeOptimize.json();
 console.log(giteeResult.optimized);
+
+// 提示词翻译 (中文转英文 - 免费)
+const translateResponse = await fetch('https://your-project.pages.dev/api/translate', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    prompt: '一只在雪地里奔跑的金毛犬',
+  }),
+});
+
+const translated = await translateResponse.json();
+console.log(translated.translated);
+// 输出: "A golden retriever running in the snow"
 ```
 
 ### Python
@@ -533,6 +603,20 @@ gitee_optimize = requests.post(
 )
 
 print(gitee_optimize.json()['optimized'])
+
+# 提示词翻译 (中文转英文 - 免费)
+translate_response = requests.post(
+    'https://your-project.pages.dev/api/translate',
+    headers={
+        'Content-Type': 'application/json',
+    },
+    json={
+        'prompt': '一只在雪地里奔跑的金毛犬',
+    }
+)
+
+print(translate_response.json()['translated'])
+# 输出: "A golden retriever running in the snow"
 ```
 
 ## 支持的宽高比
