@@ -2,7 +2,7 @@
  * HuggingFace Provider Implementation
  */
 
-import { Errors, HF_SPACES } from '@z-image/shared'
+import { ApiError, ApiErrorCode, Errors, HF_SPACES } from '@z-image/shared'
 import { MAX_INT32 } from '../constants'
 import { callGradioApi } from '../utils'
 import type { ImageProvider, ProviderGenerateRequest, ProviderGenerateResult } from './types'
@@ -26,6 +26,26 @@ function parseSeedFromResponse(modelId: string, result: unknown[], fallbackSeed:
   // Other models return seed as number in data[1]
   if (typeof result[1] === 'number') return result[1]
   return fallbackSeed
+}
+
+function getCandidateBaseUrls(modelId: string): string[] {
+  const primary = HF_SPACES[modelId as keyof typeof HF_SPACES] || HF_SPACES['z-image-turbo']
+  // Known mirror space for z-image-turbo. Helps when a space is cold/blocked/deleted.
+  const fallbacks =
+    modelId === 'z-image-turbo' ? ['https://luca115-z-image-turbo.hf.space'] : ([] as string[])
+  return [primary, ...fallbacks].filter(Boolean)
+}
+
+function isNotFoundProviderError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.code === ApiErrorCode.PROVIDER_ERROR && (err.details?.upstream || '').includes('404')
+  }
+  if (err && typeof err === 'object' && 'code' in err) {
+    const code = (err as { code?: unknown }).code
+    const details = (err as { details?: unknown }).details as { upstream?: string } | undefined
+    return code === ApiErrorCode.PROVIDER_ERROR && (details?.upstream || '').includes('404')
+  }
+  return false
 }
 
 /** Model-specific Gradio configurations */
@@ -58,31 +78,50 @@ export class HuggingFaceProvider implements ImageProvider {
   async generate(request: ProviderGenerateRequest): Promise<ProviderGenerateResult> {
     const seed = request.seed ?? Math.floor(Math.random() * MAX_INT32)
     const modelId = request.model || 'z-image-turbo'
-    const baseUrl = HF_SPACES[modelId as keyof typeof HF_SPACES] || HF_SPACES['z-image-turbo']
     const config = MODEL_CONFIGS[modelId] || MODEL_CONFIGS['z-image-turbo']
 
     // Debug: log model info (uncomment for debugging)
     // console.log(`[HuggingFace] Model: ${modelId}, BaseURL: ${baseUrl}`)
 
-    const data = await callGradioApi(
-      baseUrl,
-      config.endpoint,
-      config.buildData(request, seed),
-      request.authToken
-    )
+    let lastErr: unknown
+    let imageUrl: string | undefined
+    let data: unknown[] | undefined
 
-    const result = data as Array<{ url?: string } | number | string>
-    const first = result[0]
-    const rawUrl =
-      typeof first === 'string' ? first : (first as { url?: string } | null | undefined)?.url
-    const imageUrl = rawUrl ? normalizeImageUrl(baseUrl, rawUrl) : undefined
+    for (const baseUrl of getCandidateBaseUrls(modelId)) {
+      try {
+        data = await callGradioApi(
+          baseUrl,
+          config.endpoint,
+          config.buildData(request, seed),
+          request.authToken
+        )
+
+        const result = data as Array<{ url?: string } | number | string>
+        const first = result[0]
+        const rawUrl =
+          typeof first === 'string' ? first : (first as { url?: string } | null | undefined)?.url
+        imageUrl = rawUrl ? normalizeImageUrl(baseUrl, rawUrl) : undefined
+        if (!imageUrl) {
+          // A successful call without an image payload is not a base-URL issue.
+          throw Errors.generationFailed('HuggingFace', 'No image returned')
+        }
+        break
+      } catch (err) {
+        lastErr = err
+        // Try next base URL only for 404-type provider errors.
+        if (isNotFoundProviderError(err)) continue
+        throw err
+      }
+    }
+
     if (!imageUrl) {
+      if (lastErr) throw lastErr
       throw Errors.generationFailed('HuggingFace', 'No image returned')
     }
 
     return {
       url: imageUrl,
-      seed: parseSeedFromResponse(modelId, result, seed),
+      seed: parseSeedFromResponse(modelId, data as unknown[], seed),
     }
   }
 }

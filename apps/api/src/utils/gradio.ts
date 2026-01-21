@@ -106,8 +106,9 @@ export async function callGradioApi(
   // HuggingFace Spaces can be "cold" (starting/loading) and sometimes return transient 404/503.
   // Retry a few times to reduce false-negative failures in serverless runtimes (e.g. Cloudflare).
   let queueData: { event_id?: string } | null = null
+  const queueUrl = `${baseUrl}/gradio_api/call/${endpoint}`
   for (let attempt = 0; attempt < MAX_GRADIO_RETRIES; attempt++) {
-    const queue = await fetch(`${baseUrl}/gradio_api/call/${endpoint}`, {
+    const queue = await fetch(queueUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ data }),
@@ -125,11 +126,11 @@ export async function callGradioApi(
       await sleep(600 * (attempt + 1))
       continue
     }
-    throw parseHuggingFaceError(errText || `Queue request failed: ${status}`, status)
+    throw parseHuggingFaceError(`${status} ${queueUrl}${errText ? `: ${errText}` : ''}`, status)
   }
 
   if (!queueData) {
-    throw Errors.providerError(PROVIDER_NAME, 'Queue request failed after retries')
+    throw Errors.providerError(PROVIDER_NAME, `Queue request failed after retries: ${queueUrl}`)
   }
 
   if (!queueData.event_id) {
@@ -137,8 +138,9 @@ export async function callGradioApi(
   }
 
   let text = ''
+  const resultUrl = `${baseUrl}/gradio_api/call/${endpoint}/${queueData.event_id}`
   for (let attempt = 0; attempt < MAX_GRADIO_RETRIES; attempt++) {
-    const result = await fetch(`${baseUrl}/gradio_api/call/${endpoint}/${queueData.event_id}`, {
+    const result = await fetch(resultUrl, {
       headers,
     })
 
@@ -154,7 +156,7 @@ export async function callGradioApi(
       await sleep(600 * (attempt + 1))
       continue
     }
-    throw parseHuggingFaceError(errText || `Result request failed: ${status}`, status)
+    throw parseHuggingFaceError(`${status} ${resultUrl}${errText ? `: ${errText}` : ''}`, status)
   }
 
   if (!text) {
