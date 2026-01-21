@@ -48,7 +48,7 @@ import {
 import { registerOpenAIRoutes } from './openai/routes'
 import { getProvider, hasProvider } from './providers'
 import { createVideoTask, getVideoTaskStatus } from './providers/gitee'
-import { callGradioApi, formatDimensions, formatDuration, getOrigin, toProxyUrl } from './utils'
+import { callGradioApi, formatDimensions, formatDuration } from './utils'
 
 export interface AppConfig {
   corsOrigins?: string[]
@@ -507,7 +507,8 @@ function createApiApp(config: AppConfig = {}) {
       const providerName = providerConfig?.name || providerId
 
       const imageDetails: ImageDetails = {
-        url: providerId === 'huggingface' ? toProxyUrl(getOrigin(c), result.url) : result.url,
+        // Return the raw provider URL; clients may opt into /api/proxy-image for CORS-safe downloads.
+        url: result.url,
         provider: providerName,
         model: modelName,
         dimensions: formatDimensions(width, height),
@@ -580,7 +581,7 @@ function createApiApp(config: AppConfig = {}) {
       const modelName = modelConfig?.name || modelId
 
       const imageDetails: ImageDetails = {
-        url: toProxyUrl(getOrigin(c), result.url),
+        url: result.url,
         provider: 'HuggingFace',
         model: modelName,
         dimensions: formatDimensions(width, height),

@@ -16,6 +16,25 @@
     "tryFlowMode": "Try Flow Mode (Experimental)",
     "flowMode": "Flow Mode"
   },
+  "history": {
+    "title": "History",
+    "titleWithCount": "History ({{count}})",
+    "ttlHint": "URLs are kept for up to 24 hours (HF Space temporary files).",
+    "load": "Load",
+    "regenerate": "Regenerate",
+    "expired": "Expired",
+    "urlExpired": "Image URL expired (24h limit).",
+    "loadFailed": "Failed to load image.",
+    "thumbnailFailed": "No preview",
+    "clearExpired": "Clear expired",
+    "clearAll": "Clear all",
+    "noExpired": "No expired items.",
+    "clearedExpired": "Cleared {{count}} expired item(s).",
+    "clearedAll": "History cleared.",
+    "clearAllConfirm": "Clear all history? This cannot be undone.",
+    "emptyTitle": "History",
+    "emptyBody": "No images yet. Generate one to see it here."
+  },
   "prompt": {
     "title": "Prompt",
     "placeholder": "Describe the image you want to create...",

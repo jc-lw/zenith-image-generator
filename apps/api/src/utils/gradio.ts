@@ -59,6 +59,8 @@ export function extractCompleteEventData(sseStream: string): unknown {
     } else if (line.startsWith('data:')) {
       const jsonData = line.substring(5).trim()
       if (currentEvent === 'complete') {
+        // Gradio queue "complete" payload isn't consistent across spaces:
+        // some return an array directly, others return an object like { data: [...] }.
         return JSON.parse(jsonData)
       }
       if (currentEvent === 'error') {
@@ -115,7 +117,26 @@ export async function callGradioApi(
   const result = await fetch(`${baseUrl}/gradio_api/call/${endpoint}/${queueData.event_id}`, {
     headers,
   })
-  const text = await result.text()
+  if (!result.ok) {
+    const errText = await result.text().catch(() => '')
+    throw parseHuggingFaceError(errText || `Result request failed: ${result.status}`, result.status)
+  }
 
-  return extractCompleteEventData(text) as unknown[]
+  const text = await result.text()
+  const complete = extractCompleteEventData(text)
+
+  // Normalize the "complete" payload to the common `unknown[]` that providers expect.
+  if (Array.isArray(complete)) return complete as unknown[]
+  if (
+    complete &&
+    typeof complete === 'object' &&
+    Array.isArray((complete as { data?: unknown }).data)
+  ) {
+    return (complete as { data: unknown[] }).data
+  }
+
+  throw Errors.providerError(
+    PROVIDER_NAME,
+    `Unexpected complete payload: ${JSON.stringify(complete).slice(0, 200)}`
+  )
 }

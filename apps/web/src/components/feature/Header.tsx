@@ -1,4 +1,4 @@
-import { Github, Settings, Sparkles } from 'lucide-react'
+import { Github, History, Settings, Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -7,10 +7,11 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 interface HeaderProps {
   children?: ReactNode
   onSettingsClick?: () => void
+  onHistoryClick?: () => void
   hasToken?: boolean
 }
 
-export function Header({ children, onSettingsClick, hasToken }: HeaderProps) {
+export function Header({ children, onSettingsClick, onHistoryClick, hasToken }: HeaderProps) {
   const { t } = useTranslation()
 
   return (
@@ -36,6 +37,16 @@ export function Header({ children, onSettingsClick, hasToken }: HeaderProps) {
 
       <div className="flex items-center gap-2">
         {children}
+        {onHistoryClick && (
+          <button
+            type="button"
+            onClick={onHistoryClick}
+            className="flex items-center gap-2 px-3 py-1.5 border border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+          >
+            <History className="w-4 h-4" />
+            <span className="text-sm">{t('history.title')}</span>
+          </button>
+        )}
         {onSettingsClick && (
           <button
             type="button"

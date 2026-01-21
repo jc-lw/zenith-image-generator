@@ -59,6 +59,23 @@ describe('HuggingFaceProvider', () => {
     } as Response)
   }
 
+  function mockGradioSuccessObjectPayload(imageUrl: string) {
+    const mockFetch = vi.mocked(fetch)
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ event_id: 'test-event-123' }),
+    } as Response)
+
+    // Some Spaces return an object shape: { data: [...] }
+    const sseData = `event: complete\ndata: {"data":[{"url":"${imageUrl}"}]}\n\n`
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => sseData,
+    } as Response)
+  }
+
   function mockGradioQueueError(status: number, errorText: string) {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
@@ -130,6 +147,13 @@ describe('HuggingFaceProvider', () => {
       expect(result.url).toBe('https://hf.space/img.png')
     })
 
+    it('should handle complete payload returned as an object with data[]', async () => {
+      mockGradioSuccessObjectPayload('https://hf.space/img.png')
+
+      const result = await provider.generate(defaultRequest)
+      expect(result.url).toBe('https://hf.space/img.png')
+    })
+
     it('should generate random seed if not provided', async () => {
       mockGradioSuccess('https://hf.space/img.png')
 
@@ -175,6 +199,21 @@ describe('HuggingFaceProvider', () => {
       })
 
       expect(result.seed).toBe(42)
+    })
+
+    it('should normalize relative Gradio file URLs against the space base URL', async () => {
+      // Relative URL that some gradio deployments return.
+      mockGradioSuccess('/gradio_api/file=generated.png', 123)
+
+      const result = await provider.generate({
+        ...defaultRequest,
+        model: 'z-image-turbo',
+        seed: 123,
+      })
+
+      expect(result.url).toBe(
+        'https://mrfakename-z-image-turbo.hf.space/gradio_api/file=generated.png'
+      )
     })
   })
 

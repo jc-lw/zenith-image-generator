@@ -2,7 +2,6 @@ import { Errors, getModelsByProvider, PROVIDER_CONFIGS } from '@z-image/shared'
 import type { Hono } from 'hono'
 import { sendError } from '../middleware'
 import { getProvider } from '../providers'
-import { getOrigin, toProxyUrl } from '../utils'
 import { convertRequest, convertResponse, parseBearerToken } from './adapter'
 import { resolveModel } from './model-resolver'
 import type { OpenAIImageRequest, OpenAIModelsListResponse } from './types'
@@ -95,8 +94,8 @@ export function registerOpenAIRoutes(app: Hono) {
         model,
         authToken: auth.token,
       })
-      const proxyUrl = toProxyUrl(getOrigin(c), result.url)
-      return c.json(convertResponse({ ...result, url: proxyUrl }))
+      // Return raw URL for compatibility with OpenAI "url" response_format.
+      return c.json(convertResponse(result))
     } catch (err) {
       return sendError(c, err)
     }

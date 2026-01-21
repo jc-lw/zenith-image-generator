@@ -10,14 +10,7 @@ import {
   type ProviderType,
 } from '@/lib/constants'
 import { loadTokensArray } from '@/lib/crypto'
-import {
-  blobToDataUrl,
-  blobToObjectUrl,
-  checkStorageLimit,
-  getBlob,
-  storeBlob,
-  urlToBlob,
-} from '@/lib/imageBlobStore'
+import { saveToHistory } from '@/lib/historyStore'
 import { getNextAvailableToken, isQuotaError, markTokenExhausted } from '@/lib/tokenRotation'
 import type { ImageData } from '@/stores/flowStore'
 import { useFlowStore } from '@/stores/flowStore'
@@ -132,64 +125,15 @@ async function generateImageWithRotation(
 
 function ImageNodeComponent({ id, data }: ImageNodeProps) {
   const { t } = useTranslation()
-  const { prompt, width, height, seed, imageUrl, imageBlobId, duration, isLoading, error } = data
+  const { prompt, width, height, seed, imageUrl, duration, isLoading, error } = data
   const [elapsed, setElapsed] = useState(0)
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null)
   const startTimeRef = useRef(0)
   const generatingRef = useRef(false)
-  const objectUrlRef = useRef<string | null>(null)
 
   const updateImageGenerated = useFlowStore((s) => s.updateImageGenerated)
   const updateImageError = useFlowStore((s) => s.updateImageError)
   const setLightboxImage = useFlowStore((s) => s.setLightboxImage)
-  const setStorageLimitState = useFlowStore((s) => s.setStorageLimitState)
   const hasHydrated = useFlowStore((s) => s._hasHydrated)
-
-  // Cleanup object URL on unmount
-  useEffect(() => {
-    return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current)
-      }
-    }
-  }, [])
-
-  // Load blob for display when we have a blobId
-  useEffect(() => {
-    if (!imageBlobId) {
-      // Fallback to URL if no blob
-      setDisplayUrl(imageUrl || null)
-      return
-    }
-
-    let cancelled = false
-    ;(async () => {
-      try {
-        const blob = await getBlob(imageBlobId)
-        if (cancelled) return
-
-        if (blob) {
-          // Revoke previous object URL
-          if (objectUrlRef.current) {
-            URL.revokeObjectURL(objectUrlRef.current)
-          }
-          const url = blobToObjectUrl(blob)
-          objectUrlRef.current = url
-          setDisplayUrl(url)
-        } else {
-          // Blob not found, fallback to URL
-          setDisplayUrl(imageUrl || null)
-        }
-      } catch (e) {
-        console.error('Failed to load blob:', e)
-        setDisplayUrl(imageUrl || null)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [imageBlobId, imageUrl])
 
   // Timer for elapsed time during generation
   useEffect(() => {
@@ -237,37 +181,24 @@ function ImageNodeComponent({ id, data }: ImageNodeProps) {
           requiresAuth
         )
 
-        // Fetch image and store as blob
-        let blobId: string | undefined
-        try {
-          const blob = await urlToBlob(imageDetails.url)
+        // Save metadata-only history entry (no blob caching).
+        saveToHistory({
+          url: imageDetails.url,
+          prompt,
+          negativePrompt: '',
+          providerId: provider,
+          providerName: imageDetails.provider,
+          modelId: selectedModel,
+          modelName: imageDetails.model,
+          width,
+          height,
+          steps: imageDetails.steps,
+          seed: imageDetails.seed,
+          duration: imageDetails.duration,
+          source: 'flow',
+        })
 
-          // Check storage limit before storing
-          const limitCheck = await checkStorageLimit(blob.size)
-          if (limitCheck?.needsCleanup) {
-            // Storage limit reached - show modal
-            setStorageLimitState({
-              needsCleanup: true,
-              reason: limitCheck.reason,
-              currentCount: limitCheck.currentCount,
-              currentSizeMB: limitCheck.currentSizeMB,
-              pendingImageId: id,
-              pendingBlob: blob,
-            })
-            // Still update the image with URL (without blob storage)
-            updateImageGenerated(id, imageDetails.url, imageDetails.duration, undefined)
-            return
-          }
-
-          const storedId = await storeBlob(id, blob)
-          if (storedId) {
-            blobId = storedId
-          }
-        } catch (e) {
-          console.warn('Failed to store image blob:', e)
-        }
-
-        updateImageGenerated(id, imageDetails.url, imageDetails.duration, blobId)
+        updateImageGenerated(id, imageDetails.url, imageDetails.duration)
       } catch (err) {
         updateImageError(id, err instanceof Error ? err.message : 'Failed to generate')
       }
@@ -283,38 +214,21 @@ function ImageNodeComponent({ id, data }: ImageNodeProps) {
     hasHydrated,
     updateImageGenerated,
     updateImageError,
-    setStorageLimitState,
   ])
 
   const handleDownload = async () => {
-    if (!imageBlobId && !imageUrl) return
+    if (!imageUrl) return
 
     try {
-      // Try to get blob from store first
-      if (imageBlobId) {
-        const blob = await getBlob(imageBlobId)
-        if (blob) {
-          const dataUrl = await blobToDataUrl(blob)
-          const a = document.createElement('a')
-          a.href = dataUrl
-          a.download = `zenith-${seed}-${Date.now()}.png`
-          a.click()
-          return
-        }
-      }
-
-      // Fallback to URL download
-      if (imageUrl) {
-        const { downloadImage } = await import('@/lib/utils')
-        await downloadImage(imageUrl, `zenith-${seed}-${Date.now()}.png`)
-      }
+      const { downloadImage } = await import('@/lib/utils')
+      await downloadImage(imageUrl, `zenith-${seed}-${Date.now()}.png`)
     } catch (e) {
       console.error('Failed to download image:', e)
     }
   }
 
   const handleDoubleClick = () => {
-    if (displayUrl || imageUrl) {
+    if (imageUrl) {
       setLightboxImage(id)
     }
   }
@@ -342,9 +256,9 @@ function ImageNodeComponent({ id, data }: ImageNodeProps) {
           <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
           <span className="text-red-400 text-sm text-center">{error}</span>
         </div>
-      ) : displayUrl ? (
+      ) : imageUrl ? (
         <>
-          <img src={displayUrl} alt="Generated" className="w-full h-full object-cover" />
+          <img src={imageUrl} alt="Generated" className="w-full h-full object-cover" />
 
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">

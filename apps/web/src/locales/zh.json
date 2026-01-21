@@ -16,6 +16,25 @@
     "tryFlowMode": "尝试流程模式（实验性）",
     "flowMode": "流程模式"
   },
+  "history": {
+    "title": "历史记录",
+    "titleWithCount": "历史记录（{{count}}）",
+    "ttlHint": "URL 最多保留 24 小时（HF Space 临时文件）。",
+    "load": "加载",
+    "regenerate": "重新生成",
+    "expired": "已过期",
+    "urlExpired": "图片 URL 已过期（24 小时限制）。",
+    "loadFailed": "图片加载失败。",
+    "thumbnailFailed": "无预览",
+    "clearExpired": "清理过期",
+    "clearAll": "清空全部",
+    "noExpired": "没有过期记录。",
+    "clearedExpired": "已清理 {{count}} 条过期记录。",
+    "clearedAll": "已清空历史记录。",
+    "clearAllConfirm": "确定清空所有历史记录？此操作不可恢复。",
+    "emptyTitle": "历史记录",
+    "emptyBody": "暂无记录。生成一张图片后会显示在这里。"
+  },
   "prompt": {
     "title": "提示词",
     "placeholder": "描述你想要创建的图像...",

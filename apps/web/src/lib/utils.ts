@@ -57,7 +57,7 @@ export async function downloadImage(
   if (isHF && url.startsWith('http')) {
     try {
       // Fetch the image and convert to PNG blob
-      const response = await fetch(url)
+      const response = await fetch(getProxiedUrl(url))
       const blob = await response.blob()
 
       // Create a canvas to convert to PNG
@@ -101,14 +101,14 @@ export async function downloadImage(
       console.error('Failed to convert image to PNG, falling back to direct download:', error)
       // Fallback to direct download
       const a = document.createElement('a')
-      a.href = url
+      a.href = getProxiedUrl(url)
       a.download = filename
       a.click()
     }
   } else {
     // Direct download for non-HF images
     const a = document.createElement('a')
-    a.href = url
+    a.href = getProxiedUrl(url)
     a.download = filename
     a.click()
   }

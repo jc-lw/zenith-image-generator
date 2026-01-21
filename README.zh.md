@@ -27,6 +27,7 @@
 - **4x 放大** - RealESRGAN 集成
 - **安全存储** - API Key 使用 AES-256-GCM 加密
 - **Token 轮询** - 多 API Key 自动切换，遇到限流自动换用下一个
+- **历史记录（轻量）** - 仅存元数据（URL + 参数）到 localStorage，24 小时自动过期清理
 - **Flow 模式** - 可视化批量生成画布 (实验性)
 
 ## Token 轮询
@@ -92,6 +93,12 @@ pnpm dev:web
 | [贡献指南](./docs/zh/CONTRIBUTING.md) | 本地配置、局域网访问、开发       |
 | [部署指南](./docs/zh/DEPLOYMENT.md)   | Cloudflare、Vercel、Netlify 教程 |
 | [API 参考](./docs/zh/API.md)          | 接口、参数、代码示例             |
+
+补充说明：
+
+- 接口返回的是**原始图片 URL**（例如 HuggingFace Space 的 `gradio_api/file=...`）。
+- 部分 URL 是**临时文件**（HF Space 通常 24 小时左右会失效）。
+- 如需绕过 CORS 下载，可使用代理接口：`GET /api/proxy-image?url=...`。
 
 ## 安全性
 

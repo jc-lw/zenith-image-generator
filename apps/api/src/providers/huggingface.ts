@@ -7,6 +7,15 @@ import { MAX_INT32 } from '../constants'
 import { callGradioApi } from '../utils'
 import type { ImageProvider, ProviderGenerateRequest, ProviderGenerateResult } from './types'
 
+function normalizeImageUrl(baseUrl: string, url: string): string {
+  try {
+    // Handles absolute URLs and relative paths like "/gradio_api/file=..."
+    return new URL(url, baseUrl).toString()
+  } catch {
+    return url
+  }
+}
+
 /** Parse seed from response based on model */
 function parseSeedFromResponse(modelId: string, result: unknown[], fallbackSeed: number): number {
   // Qwen Image Fast returns seed as string: "Seed used for generation: 12345"
@@ -63,7 +72,10 @@ export class HuggingFaceProvider implements ImageProvider {
     )
 
     const result = data as Array<{ url?: string } | number | string>
-    const imageUrl = (result[0] as { url?: string })?.url
+    const first = result[0]
+    const rawUrl =
+      typeof first === 'string' ? first : (first as { url?: string } | null | undefined)?.url
+    const imageUrl = rawUrl ? normalizeImageUrl(baseUrl, rawUrl) : undefined
     if (!imageUrl) {
       throw Errors.generationFailed('HuggingFace', 'No image returned')
     }

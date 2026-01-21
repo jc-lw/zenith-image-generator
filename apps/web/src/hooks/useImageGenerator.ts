@@ -26,9 +26,13 @@ import {
   saveSettings,
 } from '@/lib/constants'
 import { encryptAndStoreToken, loadAllTokens, loadTokensArray } from '@/lib/crypto'
+import type { ImageHistoryItem } from '@/lib/historyStore'
+import { saveToHistory } from '@/lib/historyStore'
 import { parseTokens } from '@/lib/tokenRotation'
 
 const IMAGE_DETAILS_KEY = 'lastImageDetails'
+
+type ImageDetailsWithMeta = ImageDetails & { historyId?: string; generatedAt?: number }
 
 export function useImageGenerator() {
   const [tokens, setTokens] = useState<Record<ProviderType, string>>({
@@ -48,10 +52,30 @@ export function useImageGenerator() {
   const [height, setHeight] = useState(() => loadSettings().height ?? 1024)
   const [steps, setSteps] = useState(() => loadSettings().steps ?? 9)
   const [loading, setLoading] = useState(false)
-  const [imageDetails, setImageDetails] = useState<ImageDetails | null>(() => {
+  const [imageDetails, setImageDetails] = useState<ImageDetailsWithMeta | null>(() => {
     try {
       const stored = localStorage.getItem(IMAGE_DETAILS_KEY)
       return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
+  const [historyId, setHistoryId] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem(IMAGE_DETAILS_KEY)
+      if (!stored) return null
+      const parsed = JSON.parse(stored) as ImageDetailsWithMeta
+      return parsed?.historyId || null
+    } catch {
+      return null
+    }
+  })
+  const [generatedAt, setGeneratedAt] = useState<number | null>(() => {
+    try {
+      const stored = localStorage.getItem(IMAGE_DETAILS_KEY)
+      if (!stored) return null
+      const parsed = JSON.parse(stored) as ImageDetailsWithMeta
+      return typeof parsed?.generatedAt === 'number' ? parsed.generatedAt : null
     } catch {
       return null
     }
@@ -190,11 +214,44 @@ export function useImageGenerator() {
 
   const handleDelete = () => {
     setImageDetails(null)
+    setHistoryId(null)
+    setGeneratedAt(null)
     setIsUpscaled(false)
     setIsBlurred(false)
     setShowInfo(false)
     toast.success('Image deleted')
   }
+
+  const handleLoadFromHistory = useCallback((item: ImageHistoryItem) => {
+    setProvider(item.providerId)
+    setModel(item.modelId)
+    setPrompt(item.prompt)
+    setNegativePrompt(item.negativePrompt || '')
+    setWidth(item.width)
+    setHeight(item.height)
+    setSteps(item.steps)
+
+    setHistoryId(item.id)
+    setGeneratedAt(item.timestamp)
+    setIsUpscaled(false)
+    setIsBlurred(false)
+    setShowInfo(false)
+
+    setImageDetails({
+      url: item.url,
+      provider: item.providerName,
+      model: item.modelName,
+      dimensions: `${item.width} x ${item.height}`,
+      duration: item.duration || '',
+      seed: item.seed,
+      steps: item.steps,
+      prompt: item.prompt,
+      negativePrompt: item.negativePrompt || '',
+      historyId: item.id,
+      generatedAt: item.timestamp,
+    })
+    toast.success('Loaded from history')
+  }, [])
 
   const handleGenerate = async () => {
     const providerConfig = PROVIDER_CONFIGS[provider]
@@ -207,6 +264,8 @@ export function useImageGenerator() {
 
     setLoading(true)
     setImageDetails(null)
+    setHistoryId(null)
+    setGeneratedAt(null)
     setIsUpscaled(false)
     setIsBlurred(false)
     setShowInfo(false)
@@ -236,23 +295,6 @@ export function useImageGenerator() {
       if (!details?.url) throw new Error('No image returned')
       addStatus(`Image generated in ${details.duration}!`)
 
-      // Convert HuggingFace temporary URLs to blob URLs to prevent expiration
-      if (details.url.includes('.hf.space') && details.url.startsWith('http')) {
-        try {
-          addStatus('Caching image...')
-          // Use proxy to bypass CORS in production
-          const apiUrl = import.meta.env.VITE_API_URL || ''
-          const proxyUrl = `${apiUrl}/api/proxy-image?url=${encodeURIComponent(details.url)}`
-          const response = await fetch(proxyUrl)
-          if (response.ok) {
-            const blob = await response.blob()
-            details.url = URL.createObjectURL(blob)
-          }
-        } catch (e) {
-          console.warn('Failed to cache HF image:', e)
-        }
-      }
-
       // Auto upscale to 8K if enabled
       if (upscale8k && details.url.startsWith('http')) {
         addStatus('Upscaling to 8K...')
@@ -272,7 +314,26 @@ export function useImageGenerator() {
         }
       }
 
-      setImageDetails(details)
+      const now = Date.now()
+      const newHistoryId = saveToHistory({
+        url: details.url,
+        prompt: details.prompt,
+        negativePrompt: details.negativePrompt,
+        providerId: provider,
+        providerName: details.provider,
+        modelId: model,
+        modelName: details.model,
+        width,
+        height,
+        steps: details.steps,
+        seed: details.seed,
+        duration: details.duration,
+        source: 'home',
+      })
+
+      setHistoryId(newHistoryId)
+      setGeneratedAt(now)
+      setImageDetails({ ...details, historyId: newHistoryId, generatedAt: now })
       toast.success('Image generated!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An error occurred'
@@ -532,6 +593,9 @@ export function useImageGenerator() {
     handleUpscale,
     handleDelete,
     handleGenerate,
+    handleLoadFromHistory,
+    historyId,
+    generatedAt,
     // LLM Handlers
     handleOptimize,
     handleTranslate,

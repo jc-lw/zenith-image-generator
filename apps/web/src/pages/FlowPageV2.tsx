@@ -8,18 +8,18 @@ import {
   ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Download, Github, Loader2, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Github, History, Loader2, Settings, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ImageHistory } from '@/components/feature/ImageHistory'
 import { SettingsModal } from '@/components/feature/SettingsModal'
 import { ConfigNode } from '@/components/flow/ConfigNode'
 import { FlowInput } from '@/components/flow/FlowInput'
 import { ImageNode } from '@/components/flow/ImageNode'
 import { Lightbox } from '@/components/flow/Lightbox'
 import { type ContextMenuState, NodeContextMenu } from '@/components/flow/NodeContextMenu'
-import { StorageLimitModal } from '@/components/flow/StorageLimitModal'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 import { optimizePrompt, translatePrompt } from '@/lib/api'
 import {
@@ -36,7 +36,6 @@ import {
   saveSettings,
 } from '@/lib/constants'
 import { decryptTokenFromStore, encryptAndStoreToken, loadAllTokens } from '@/lib/crypto'
-import { blobToDataUrl, cleanupForNewBlob, getBlob, storeBlob } from '@/lib/imageBlobStore'
 import { downloadImagesAsZip } from '@/lib/utils'
 import { LAYOUT, useFlowStore } from '@/stores/flowStore'
 
@@ -55,15 +54,13 @@ function FlowCanvas() {
   const updateConfigPosition = useFlowStore((s) => s.updateConfigPosition)
   const loadConfigForEditing = useFlowStore((s) => s.loadConfigForEditing)
   const clearAll = useFlowStore((s) => s.clearAll)
-  const storageLimitState = useFlowStore((s) => s.storageLimitState)
-  const clearStorageLimitState = useFlowStore((s) => s.clearStorageLimitState)
-  const updateImageGenerated = useFlowStore((s) => s.updateImageGenerated)
   const deleteConfig = useFlowStore((s) => s.deleteConfig)
   const deleteImage = useFlowStore((s) => s.deleteImage)
 
   // Download state
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -392,8 +389,8 @@ function FlowCanvas() {
 
   // Handle download all images
   const handleDownloadAll = useCallback(async () => {
-    // Get all images with blob or URL data
-    const imagesWithData = imageNodes.filter((n) => n.data.imageBlobId || n.data.imageUrl)
+    // Get all images with URL data
+    const imagesWithData = imageNodes.filter((n) => n.data.imageUrl)
     if (imagesWithData.length === 0) {
       alert(t('flow.noImages'))
       return
@@ -403,29 +400,11 @@ function FlowCanvas() {
     setDownloadProgress(t('flow.downloadProgress', { current: 0, total: imagesWithData.length }))
 
     try {
-      // Build image list, preferring blob storage over URLs
       const images: Array<{ url: string; filename: string }> = []
 
       for (let i = 0; i < imagesWithData.length; i++) {
         const node = imagesWithData[i]
-        let url: string | null = null
-
-        // Try to get from blob storage first (local, no CORS issues)
-        if (node.data.imageBlobId) {
-          try {
-            const blob = await getBlob(node.data.imageBlobId)
-            if (blob) {
-              url = await blobToDataUrl(blob)
-            }
-          } catch (e) {
-            console.warn('Failed to get blob, falling back to URL:', e)
-          }
-        }
-
-        // Fallback to URL if blob not available
-        if (!url && node.data.imageUrl) {
-          url = node.data.imageUrl
-        }
+        const url = node.data.imageUrl || null
 
         if (url) {
           images.push({
@@ -445,40 +424,6 @@ function FlowCanvas() {
       setDownloadProgress('')
     }
   }, [imageNodes, t])
-
-  // Handle storage limit modal - download all from modal
-  const handleStorageDownloadAll = useCallback(async () => {
-    await handleDownloadAll()
-  }, [handleDownloadAll])
-
-  // Handle storage limit modal - confirm cleanup
-  const handleConfirmCleanup = useCallback(async () => {
-    if (!storageLimitState?.pendingBlob || !storageLimitState?.pendingImageId) {
-      clearStorageLimitState()
-      return
-    }
-
-    const { pendingBlob, pendingImageId } = storageLimitState
-
-    // Perform cleanup
-    await cleanupForNewBlob(pendingBlob.size)
-
-    // Store the pending blob
-    const blobId = await storeBlob(pendingImageId, pendingBlob)
-
-    // Update the image with the new blobId
-    const imageNode = imageNodes.find((n) => n.id === pendingImageId)
-    if (imageNode && blobId) {
-      updateImageGenerated(
-        pendingImageId,
-        imageNode.data.imageUrl || '',
-        imageNode.data.duration || '',
-        blobId
-      )
-    }
-
-    clearStorageLimitState()
-  }, [storageLimitState, imageNodes, updateImageGenerated, clearStorageLimitState])
 
   return (
     <div className="h-screen w-screen bg-zinc-950">
@@ -574,6 +519,14 @@ function FlowCanvas() {
           )}
           <button
             type="button"
+            onClick={() => setShowHistory(true)}
+            className="flex items-center gap-2 px-3 py-1.5 border border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+          >
+            <History className="w-4 h-4" />
+            <span className="text-sm">{t('history.title')}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-2 px-3 py-1.5 border border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
           >
@@ -623,16 +576,15 @@ function FlowCanvas() {
       {/* Lightbox */}
       <Lightbox />
 
-      {/* Storage Limit Modal */}
-      <StorageLimitModal
-        isOpen={!!storageLimitState?.needsCleanup}
-        reason={storageLimitState?.reason || null}
-        currentCount={storageLimitState?.currentCount || 0}
-        currentSizeMB={storageLimitState?.currentSizeMB || 0}
-        onDownloadAll={handleStorageDownloadAll}
-        onConfirmCleanup={handleConfirmCleanup}
-        onCancel={clearStorageLimitState}
-        isDownloading={isDownloading}
+      <ImageHistory
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        onSelect={(item) => {
+          // Flow doesn't have a single "current image" slot; open the item in a new tab.
+          window.open(item.url, '_blank', 'noopener,noreferrer')
+          toast.success(t('history.load'))
+          setShowHistory(false)
+        }}
       />
 
       {/* Node Context Menu */}

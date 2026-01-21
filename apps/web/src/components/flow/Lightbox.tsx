@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ImageComparison } from '@/components/ui/ImageComparison'
 import { upscaleImage } from '@/lib/api'
-import { blobToDataUrl, blobToObjectUrl, getBlob } from '@/lib/imageBlobStore'
 import { useFlowStore } from '@/stores/flowStore'
 
 export function Lightbox() {
@@ -27,7 +26,6 @@ export function Lightbox() {
   const setLightboxImage = useFlowStore((s) => s.setLightboxImage)
 
   const [displayUrl, setDisplayUrl] = useState<string | null>(null)
-  const objectUrlRef = useRef<string | null>(null)
 
   // Zoom state
   const [scale, setScale] = useState(1)
@@ -45,7 +43,7 @@ export function Lightbox() {
   const [isBlurred, setIsBlurred] = useState(false)
 
   const currentImage = imageNodes.find((n) => n.id === lightboxImageId)
-  const imagesWithUrls = imageNodes.filter((n) => n.data.imageUrl || n.data.imageBlobId)
+  const imagesWithUrls = imageNodes.filter((n) => n.data.imageUrl)
 
   // Reset state when image changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: lightboxImageId triggers reset even though not used inside
@@ -58,58 +56,14 @@ export function Lightbox() {
     setIsBlurred(false)
   }, [lightboxImageId])
 
-  // Load blob for display when lightbox opens or image changes
+  // Load URL for display when lightbox opens or image changes
   useEffect(() => {
     if (!currentImage) {
       setDisplayUrl(null)
       return
     }
-
-    // Revoke previous object URL
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current)
-      objectUrlRef.current = null
-    }
-
-    const { imageBlobId, imageUrl } = currentImage.data
-
-    if (!imageBlobId) {
-      setDisplayUrl(imageUrl || null)
-      return
-    }
-
-    let cancelled = false
-    ;(async () => {
-      try {
-        const blob = await getBlob(imageBlobId)
-        if (cancelled) return
-
-        if (blob) {
-          const url = blobToObjectUrl(blob)
-          objectUrlRef.current = url
-          setDisplayUrl(url)
-        } else {
-          setDisplayUrl(imageUrl || null)
-        }
-      } catch (e) {
-        console.error('Failed to load blob for lightbox:', e)
-        setDisplayUrl(imageUrl || null)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
+    setDisplayUrl(currentImage.data.imageUrl || null)
   }, [currentImage])
-
-  // Cleanup object URL on unmount
-  useEffect(() => {
-    return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current)
-      }
-    }
-  }, [])
 
   const handleClose = useCallback(() => {
     setLightboxImage(null)
@@ -132,24 +86,10 @@ export function Lightbox() {
   const handleDownload = async () => {
     if (!currentImage) return
 
-    const { imageBlobId, imageUrl, seed } = currentImage.data
+    const { imageUrl, seed } = currentImage.data
     const filename = `zenith-${seed}-${Date.now()}.png`
 
     try {
-      // Try to download from blob storage first
-      if (imageBlobId) {
-        const blob = await getBlob(imageBlobId)
-        if (blob) {
-          const dataUrl = await blobToDataUrl(blob)
-          const a = document.createElement('a')
-          a.href = dataUrl
-          a.download = filename
-          a.click()
-          return
-        }
-      }
-
-      // Fallback to URL download
       if (imageUrl) {
         const { downloadImage } = await import('@/lib/utils')
         await downloadImage(imageUrl, filename)

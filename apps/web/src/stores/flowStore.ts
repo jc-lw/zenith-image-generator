@@ -2,7 +2,6 @@ import type { Edge, Node } from '@xyflow/react'
 import { type IDBPDatabase, openDB } from 'idb'
 import { create } from 'zustand'
 import { createJSONStorage, persist, subscribeWithSelector } from 'zustand/middleware'
-import { clearAllBlobs, deleteBlobs } from '@/lib/imageBlobStore'
 
 // Layout constants
 export const LAYOUT = {
@@ -41,20 +40,9 @@ export interface ImageData extends Record<string, unknown> {
   height: number
   seed: number
   imageUrl?: string
-  imageBlobId?: string // Reference to blob in separate IndexedDB store
   duration?: string
   isLoading: boolean
   error?: string
-}
-
-// Storage limit state for modal
-export interface StorageLimitState {
-  needsCleanup: boolean
-  reason: 'count' | 'size' | null
-  currentCount: number
-  currentSizeMB: number
-  pendingImageId: string | null
-  pendingBlob: Blob | null
 }
 
 export interface FlowState {
@@ -72,9 +60,6 @@ export interface FlowState {
   // Lightbox state (not persisted)
   lightboxImageId: string | null
 
-  // Storage limit state (not persisted)
-  storageLimitState: StorageLimitState | null
-
   // Counter for unique IDs
   nodeIdCounter: number
 
@@ -89,14 +74,10 @@ export interface FlowState {
   setEditingModified: (modified: boolean) => void
 
   updateConfigPosition: (configId: string, x: number, y: number) => void
-  updateImageGenerated: (imageId: string, url: string, duration: string, blobId?: string) => void
+  updateImageGenerated: (imageId: string, url: string, duration: string) => void
   updateImageError: (imageId: string, error: string) => void
 
   setLightboxImage: (imageId: string | null) => void
-
-  // Storage limit actions
-  setStorageLimitState: (state: StorageLimitState | null) => void
-  clearStorageLimitState: () => void
 
   deleteConfig: (configId: string) => void
   deleteImage: (imageId: string) => void
@@ -168,7 +149,6 @@ export const useFlowStore = create<FlowState>()(
         editingConfigId: null,
         isEditingModified: false,
         lightboxImageId: null,
-        storageLimitState: null,
         nodeIdCounter: 0,
         _hasHydrated: false,
 
@@ -304,7 +284,7 @@ export const useFlowStore = create<FlowState>()(
           })
         },
 
-        updateImageGenerated: (imageId, url, duration, blobId) => {
+        updateImageGenerated: (imageId, url, duration) => {
           set((state) => ({
             imageNodes: state.imageNodes.map((n) =>
               n.id === imageId
@@ -313,7 +293,6 @@ export const useFlowStore = create<FlowState>()(
                     data: {
                       ...n.data,
                       imageUrl: url,
-                      imageBlobId: blobId,
                       duration,
                       isLoading: false,
                     },
@@ -335,25 +314,8 @@ export const useFlowStore = create<FlowState>()(
           set({ lightboxImageId: imageId })
         },
 
-        setStorageLimitState: (state) => {
-          set({ storageLimitState: state })
-        },
-
-        clearStorageLimitState: () => {
-          set({ storageLimitState: null })
-        },
-
         deleteConfig: (configId) => {
           const state = get()
-          // Get blob IDs to delete
-          const blobIds = state.imageNodes
-            .filter((n) => n.data.configId === configId && n.data.imageBlobId)
-            .map((n) => n.data.imageBlobId as string)
-
-          // Delete blobs asynchronously
-          if (blobIds.length > 0) {
-            deleteBlobs(blobIds).catch(console.error)
-          }
 
           set({
             configNodes: state.configNodes.filter((n) => n.id !== configId),
@@ -363,14 +325,6 @@ export const useFlowStore = create<FlowState>()(
 
         deleteImage: (imageId) => {
           const state = get()
-          const imageNode = state.imageNodes.find((n) => n.id === imageId)
-
-          if (!imageNode) return
-
-          // Delete blob if exists
-          if (imageNode.data.imageBlobId) {
-            deleteBlobs([imageNode.data.imageBlobId]).catch(console.error)
-          }
 
           set({
             imageNodes: state.imageNodes.filter((n) => n.id !== imageId),
@@ -378,9 +332,6 @@ export const useFlowStore = create<FlowState>()(
         },
 
         clearAll: () => {
-          // Clear all blobs asynchronously
-          clearAllBlobs().catch(console.error)
-
           set({
             configNodes: [],
             imageNodes: [],

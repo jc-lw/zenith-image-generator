@@ -1,6 +1,9 @@
 /**
  * Image Blob Store - Separate IndexedDB storage for image blobs
  *
+ * DEPRECATED: The app now prefers lightweight URL-only history storage (localStorage)
+ * and avoids caching blobs in IndexedDB for both Home and Flow.
+ *
  * This module provides a dedicated storage for image blobs, keeping them
  * separate from the main flowStore to:
  * 1. Reduce memory pressure (blobs aren't loaded into Zustand state)

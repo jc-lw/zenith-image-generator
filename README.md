@@ -27,11 +27,10 @@ batch generation, and one-click deployment to Cloudflare Pages.
 - **4x Upscaling** - RealESRGAN integration
 - **Secure Storage** - API keys encrypted with AES-256-GCM
 - **Token Rotation** - Multiple API keys with automatic failover on rate limits
+- **History (Lightweight)** - Stores metadata (URL + params) in localStorage with 24h TTL
 - **Flow Mode** - Visual canvas for batch generation (experimental)
-  - Local image caching with IndexedDB blob storage
-  - Dual limits: 500 images or 4GB max storage
-  - LRU cleanup with user confirmation before deletion
-  - Download all images before cleanup
+  - Images are referenced by remote URLs (no blob caching)
+  - Flow state is persisted locally; downloads use a proxy endpoint for CORS-safe fetches
 
 ## Token Rotation
 
@@ -101,6 +100,12 @@ curl -X POST https://your-project.pages.dev/api/generate \
   -H "X-API-Key: your-gitee-api-key" \
   -d '{"prompt": "a cute cat", "width": 1024, "height": 1024}'
 ```
+
+Notes:
+
+- The API returns the **raw provider image URL** (e.g. HuggingFace Space `gradio_api/file=...`).
+- Some provider URLs are **temporary** (HF Space files often expire around 24 hours).
+- For CORS-safe downloads, use the built-in proxy endpoint: `GET /api/proxy-image?url=...`.
 
 📖 **[Full API Reference](./docs/en/API.md)** - Providers, parameters, code examples
 

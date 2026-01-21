@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ImageComparison } from '@/components/ui/ImageComparison'
 import { useVideoGenerator } from '@/hooks/useVideoGenerator'
 import { upscaleImage } from '@/lib/api'
+import { getHistoryById, HISTORY_TTL_MS } from '@/lib/historyStore'
 
 interface ImageResultCardProps {
   imageDetails: ImageDetails | null
@@ -36,6 +37,9 @@ interface ImageResultCardProps {
   handleUpscale: () => void
   handleDownload: () => void
   handleDelete: () => void
+  onRegenerate?: () => void
+  historyId?: string | null
+  generatedAt?: number | null
 }
 
 export function ImageResultCard({
@@ -52,6 +56,9 @@ export function ImageResultCard({
   handleUpscale: _externalHandleUpscale,
   handleDownload,
   handleDelete,
+  onRegenerate,
+  historyId,
+  generatedAt,
 }: ImageResultCardProps) {
   const { t } = useTranslation()
   // Comparison mode state
@@ -60,6 +67,7 @@ export function ImageResultCard({
   const [isUpscalingLocal, setIsUpscalingLocal] = useState(false)
   const [isUpscaledLocal, setIsUpscaledLocal] = useState(false)
   const [displayUrl, setDisplayUrl] = useState<string | null>(null)
+  const [imageLoadError, setImageLoadError] = useState(false)
 
   // Fullscreen preview state
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -75,6 +83,23 @@ export function ImageResultCard({
 
   // Use display URL if set (after applying upscale), otherwise original
   const currentImageUrl = displayUrl || imageDetails?.url
+
+  useEffect(() => {
+    // Reset load-error state when the displayed image URL changes.
+    void currentImageUrl
+    setImageLoadError(false)
+  }, [currentImageUrl])
+
+  const isExpired = (() => {
+    if (historyId) {
+      const item = getHistoryById(historyId)
+      if (item) return Date.now() > item.expiresAt
+    }
+    if (typeof generatedAt === 'number') {
+      return Date.now() > generatedAt + HISTORY_TTL_MS
+    }
+    return false
+  })()
 
   // Combined upscaling state
   const isUpscaling = externalIsUpscaling || isUpscalingLocal
@@ -278,13 +303,35 @@ export function ImageResultCard({
                     className="w-full"
                   />
                 ) : (
-                  <img
-                    src={currentImageUrl || ''}
-                    alt="Generated"
-                    className={`w-full transition-all duration-300 cursor-pointer ${isBlurred ? 'blur-xl' : ''}`}
-                    onDoubleClick={handleDoubleClick}
-                    title={t('result.doubleClickFullscreen')}
-                  />
+                  <>
+                    <img
+                      src={currentImageUrl || ''}
+                      alt="Generated"
+                      className={`w-full transition-all duration-300 cursor-pointer ${isBlurred ? 'blur-xl' : ''}`}
+                      onDoubleClick={handleDoubleClick}
+                      title={t('result.doubleClickFullscreen')}
+                      onError={() => setImageLoadError(true)}
+                      onLoad={() => setImageLoadError(false)}
+                    />
+                    {imageLoadError && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                        <div className="text-center space-y-3 px-6">
+                          <div className="text-sm text-zinc-200">
+                            {isExpired ? t('history.urlExpired') : t('history.loadFailed')}
+                          </div>
+                          {onRegenerate && (
+                            <button
+                              type="button"
+                              onClick={onRegenerate}
+                              className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm transition-colors"
+                            >
+                              {t('history.regenerate')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Floating Toolbar */}
